@@ -733,6 +733,18 @@ export default function ViewerPage() {
     setCurrentPage(page)
   }
 
+  // 将文本中的换行符转换为JSX元素以便正确显示
+  const formatTextWithLineBreaks = (text: string) => {
+    if (!text) return text
+    
+    return text.split('\n').map((line, index, array) => (
+      <span key={index}>
+        {line}
+        {index < array.length - 1 && <br />}
+      </span>
+    ))
+  }
+
   // 存储文档的文本位置信息
   const [documentTextMap, setDocumentTextMap] = useState<Map<number, any[]>>(new Map())
 
@@ -1082,6 +1094,9 @@ export default function ViewerPage() {
                 <FileText className="h-6 w-6 text-black" />
                 <h1 className="text-lg font-semibold text-black">PDF Analyzer</h1>
               </div>
+              <div className="flex items-center space-x-2 ml-6">
+                <span className="text-sm font-medium text-gray-700">{fileName}</span>
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <Button variant="ghost" size="sm">
@@ -1140,17 +1155,8 @@ export default function ViewerPage() {
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-3">
-            {/* Left section: File name and annotation tools */}
+            {/* Left section: annotation tools */}
             <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-700">{fileName}</span>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                  第 {currentPage}/{totalPages} 页
-                </span>
-              </div>
-              
-              <div className="h-4 w-px bg-gray-300" /> {/* Divider */}
-              
               <div className="flex items-center space-x-2">
                 <span className="text-sm font-medium text-gray-700">批注工具：</span>
                 {(["select", "highlight", "comment"] as AnnotationTool[]).map((tool) => {
@@ -1209,6 +1215,9 @@ export default function ViewerPage() {
                 <Button variant="ghost" size="sm" onClick={goToPreviousPage} disabled={currentPage === 1}>
                   上一页
                 </Button>
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  第 {currentPage}/{totalPages} 页
+                </span>
                 <Button variant="ghost" size="sm" onClick={goToNextPage} disabled={currentPage === totalPages}>
                   下一页
                 </Button>
@@ -1461,7 +1470,7 @@ export default function ViewerPage() {
                             onClick={() => handleEditAnnotation(annotation)}
                             title="点击编辑批注内容"
                           >
-                            {annotation.content}
+                            {formatTextWithLineBreaks(annotation.content)}
                           </p>
                         )}
 

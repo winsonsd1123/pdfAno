@@ -1,9 +1,20 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileText, User, Clock, CheckCircle, PlayCircle, AlertCircle, Edit3 } from "lucide-react"
+import { FileText, User, Clock, CheckCircle, PlayCircle, AlertCircle, Edit3, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import Link from "next/link"
 
 interface WorkspaceDocument {
@@ -88,6 +99,26 @@ export default function WorkspacePage() {
     const sizes = ["Bytes", "KB", "MB", "GB"]
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
+
+  const handleDeleteFile = async (document: WorkspaceDocument) => {
+    try {
+      // 使用实际的文件名（name字段）进行删除
+      const response = await fetch(`/api/files/${encodeURIComponent(document.name)}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        // 更新本地状态，从文档列表中移除被删除的文档
+        setDocuments((prev) => prev.filter((doc) => doc.id !== document.id))
+      } else {
+        console.error('删除文件失败')
+        alert('删除文件失败，请重试')
+      }
+    } catch (error) {
+      console.error('删除文件错误:', error)
+      alert('删除文件时发生错误，请重试')
+    }
   }
 
   if (isLoading) {
@@ -265,12 +296,45 @@ export default function WorkspacePage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <Link href={`/viewer?file=${encodeURIComponent(document.name)}`}>
-                          <Button size="sm" className="bg-black text-white hover:bg-gray-800">
-                            <Edit3 className="h-4 w-4 mr-1" />
-                            批注
-                          </Button>
-                        </Link>
+                        <div className="flex items-center space-x-2">
+                          <Link href={`/viewer?file=${encodeURIComponent(document.name)}`}>
+                            <Button size="sm" className="bg-black text-white hover:bg-gray-800">
+                              <Edit3 className="h-4 w-4 mr-1" />
+                              批注
+                            </Button>
+                          </Link>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>确认删除文档</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  您确定要删除文档 "{document.originalName || document.name}" 吗？
+                                  <br />
+                                  <br />
+                                  <strong className="text-red-600">此操作无法撤销，文档将被永久删除。</strong>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>取消</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteFile(document)}
+                                  className="bg-red-600 text-white hover:bg-red-700"
+                                >
+                                  确认删除
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </td>
                     </tr>
                   ))}

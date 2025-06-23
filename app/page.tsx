@@ -5,6 +5,17 @@ import { useState, useEffect } from "react"
 import { Upload, FileText, CheckCircle, Clock, Trash2, Eye, Edit3, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import Link from "next/link"
 
 interface UploadedFile {
@@ -67,15 +78,21 @@ export default function HomePage() {
           body: formData,
         })
 
+        const result = await response.json()
+
         if (response.ok) {
-          const result = await response.json()
           if (result.files && result.files.length > 0) {
             const uploadedFile = result.files[0] // 获取上传后的文件信息
+            
+            // 从Vercel Blob的URL中提取实际的文件名，与工作台保持一致
+            const urlParts = uploadedFile.path.split('/')
+            const actualFileName = urlParts[urlParts.length - 1]
+            
             setUploadedFiles((prev) => 
               prev.map((f) => (f.id === newFile.id ? { 
                 ...f, 
-                name: uploadedFile.name, // 使用服务器返回的实际文件名
-                originalName: uploadedFile.originalName || uploadedFile.name,
+                name: actualFileName, // 使用从URL提取的实际文件名
+                originalName: uploadedFile.originalName || uploadedFile.name, // 保留原始文件名用于显示
                 status: "completed" 
               } : f))
             )
@@ -84,15 +101,32 @@ export default function HomePage() {
               prev.map((f) => (f.id === newFile.id ? { ...f, status: "completed" } : f))
             )
           }
+          
+          // 显示错误信息（如果有部分文件失败）
+          if (result.errors && result.errors.length > 0) {
+            alert(`部分文件上传失败：\n${result.errors.join('\n')}`)
+          }
         } else {
-          throw new Error('上传失败')
+          // 显示服务器返回的错误信息
+          let errorMessage = result.error || '上传失败'
+          if (result.details && result.details.length > 0) {
+            errorMessage += `：\n${result.details.join('\n')}`
+          }
+          alert(errorMessage)
+          
+          // 移除失败的文件记录
+          setUploadedFiles((prev) => prev.filter((f) => f.id !== newFile.id))
         }
       } catch (error) {
         console.error('上传错误:', error)
-        setUploadedFiles((prev) => 
-          prev.map((f) => (f.id === newFile.id ? { ...f, status: "error" } : f))
-        )
+        alert(`上传失败：${error instanceof Error ? error.message : '未知错误'}`)
+        
+        // 移除失败的文件记录
+        setUploadedFiles((prev) => prev.filter((f) => f.id !== newFile.id))
       }
+    } else {
+      // 非PDF文件直接提示错误
+      alert(`文件 "${file.name}" 不是PDF格式，请选择PDF文件上传`)
     }
   }
 
@@ -197,7 +231,10 @@ export default function HomePage() {
             >
               <Upload className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h4 className="text-xl font-semibold text-black mb-2">拖拽PDF文件到此处</h4>
-              <p className="text-gray-600 mb-6">支持单个或多个文件上传</p>
+              <p className="text-gray-600 mb-2">支持单个或多个文件上传</p>
+              <p className="text-sm text-gray-500 mb-6">
+                文件名规范：只能包含英文字母、数字、下划线(_)和连字符(-)，不能包含空格
+              </p>
               <Button
                 className="bg-black text-white hover:bg-gray-800"
                 onClick={() => document.getElementById("file-input")?.click()}
@@ -295,14 +332,37 @@ export default function HomePage() {
                               智能批注
                             </Button>
                           </Link>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteFile(file.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>确认删除文档</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  您确定要删除文档 "{file.originalName || file.name}" 吗？
+                                  <br />
+                                  <br />
+                                  <strong className="text-red-600">此操作无法撤销，文档将被永久删除。</strong>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>取消</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteFile(file.id)}
+                                  className="bg-red-600 text-white hover:bg-red-700"
+                                >
+                                  确认删除
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </>
                       )}
                       {file.status === "error" && (
@@ -322,14 +382,37 @@ export default function HomePage() {
                           >
                             重试
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteFile(file.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>确认删除文档</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  您确定要删除失败的文档 "{file.originalName || file.name}" 吗？
+                                  <br />
+                                  <br />
+                                  <strong className="text-red-600">此操作无法撤销，文档记录将被永久删除。</strong>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>取消</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteFile(file.id)}
+                                  className="bg-red-600 text-white hover:bg-red-700"
+                                >
+                                  确认删除
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </>
                       )}
                     </div>
