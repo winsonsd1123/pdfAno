@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import { existsSync } from 'fs'
-import path from 'path'
+import { put } from '@vercel/blob'
+import { API_CONFIG } from '@/lib/config'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,10 +11,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '没有文件被上传' }, { status: 400 })
     }
 
-    // 确保uploads目录存在
-    const uploadsDir = path.join(process.cwd(), 'uploads')
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true })
+    if (!API_CONFIG.BLOB_STORAGE.READ_WRITE_TOKEN) {
+      return NextResponse.json({ error: 'Blob存储未配置' }, { status: 500 })
     }
 
     const uploadedFiles = []
@@ -26,21 +23,24 @@ export async function POST(request: NextRequest) {
         continue // 跳过非PDF文件
       }
 
-      const bytes = await file.arrayBuffer()
-      const buffer = Buffer.from(bytes)
-
-      // 使用原始文件名，如果重名则覆盖
-      const filePath = path.join(uploadsDir, file.name)
-      
-      // 写入文件
-      await writeFile(filePath, buffer)
-      
-      uploadedFiles.push({
-        name: file.name,
-        size: file.size,
-        path: filePath,
-        uploadTime: new Date().toISOString()
-      })
+      try {
+        // 上传文件到Vercel Blob存储
+        const blob = await put(file.name, file, {
+          access: 'public',
+          token: API_CONFIG.BLOB_STORAGE.READ_WRITE_TOKEN,
+        })
+        
+        uploadedFiles.push({
+          name: blob.pathname,
+          originalName: file.name,
+          size: file.size,
+          path: blob.url,
+          uploadTime: new Date().toISOString()
+        })
+      } catch (blobError) {
+        console.error(`上传文件 ${file.name} 到blob存储失败:`, blobError)
+        continue
+      }
     }
 
     return NextResponse.json({ 

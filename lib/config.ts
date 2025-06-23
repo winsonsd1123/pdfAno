@@ -6,11 +6,15 @@ export const API_CONFIG = {
     BASE_URL: process.env.DEEPSEEK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3',
     MODEL: process.env.DEEPSEEK_MODEL || 'ep-20241230140435-zqgxp', // DeepSeek-R1模型端点
   },
+  // Vercel Blob Storage配置
+  BLOB_STORAGE: {
+    READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN || '',
+  },
 }
 
 // DeepSeek文档分析提示词
 export const DEEPSEEK_PROMPTS = {
-  DOCUMENT_ANALYSIS: `你是一位有着20年教学经验的资深本科论文指导教师，请以严谨而耐心的态度对这篇本科生论文进行详细批注。
+  DOCUMENT_ANALYSIS: `你是一位有着20年教学科研经验的资深本科论文指导教师，请以严谨而耐心的态度对这篇本科生论文进行详细批注。
 
 作为论文指导老师，请从以下角度进行评阅：
 
@@ -44,6 +48,8 @@ export const DEEPSEEK_PROMPTS = {
    - 鼓励学生的优点，指出可以进一步完善的地方
 
 请以温和而专业的教师语气进行批注，既要指出问题，也要给予鼓励和具体的改进建议。
+
+注意：请严格避免使用任何表情符号、emoji或特殊字符，确保输出内容完全兼容PDF注释格式。
 
 请按照以下自定义格式返回批注结果，每条批注用"---ANNOTATION---"分隔：
 

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { unlink, readFile } from 'fs/promises'
-import { existsSync } from 'fs'
-import path from 'path'
+import { head, del } from '@vercel/blob'
+import { API_CONFIG } from '@/lib/config'
 
 export async function GET(
   request: NextRequest,
@@ -10,10 +9,9 @@ export async function GET(
   try {
     const { filename: rawFilename } = await params
     const filename = decodeURIComponent(rawFilename)
-    const filePath = path.join(process.cwd(), 'uploads', filename)
     
-    if (!existsSync(filePath)) {
-      return NextResponse.json({ error: '文件不存在' }, { status: 404 })
+    if (!API_CONFIG.BLOB_STORAGE.READ_WRITE_TOKEN) {
+      return NextResponse.json({ error: 'Blob存储未配置' }, { status: 500 })
     }
 
     // 确保文件是PDF
@@ -21,16 +19,22 @@ export async function GET(
       return NextResponse.json({ error: '只支持PDF文件' }, { status: 400 })
     }
 
-    const fileBuffer = await readFile(filePath)
-    
-    return new NextResponse(fileBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${filename}"`,
-        'Cache-Control': 'public, max-age=3600'
-      }
-    })
+    try {
+      // 检查文件是否存在
+      const blob = await head(filename, {
+        token: API_CONFIG.BLOB_STORAGE.READ_WRITE_TOKEN,
+      })
+
+      // 直接重定向到blob URL
+      return NextResponse.redirect(blob.url, {
+        status: 302,
+        headers: {
+          'Cache-Control': 'public, max-age=3600'
+        }
+      })
+    } catch (blobError) {
+      return NextResponse.json({ error: '文件不存在' }, { status: 404 })
+    }
 
   } catch (error) {
     console.error('获取文件错误:', error)
@@ -45,15 +49,26 @@ export async function DELETE(
   try {
     const { filename: rawFilename } = await params
     const filename = decodeURIComponent(rawFilename)
-    const filePath = path.join(process.cwd(), 'uploads', filename)
     
-    if (!existsSync(filePath)) {
-      return NextResponse.json({ error: '文件不存在' }, { status: 404 })
+    if (!API_CONFIG.BLOB_STORAGE.READ_WRITE_TOKEN) {
+      return NextResponse.json({ error: 'Blob存储未配置' }, { status: 500 })
     }
 
-    await unlink(filePath)
-    
-    return NextResponse.json({ message: '文件删除成功' })
+    try {
+      // 检查文件是否存在
+      await head(filename, {
+        token: API_CONFIG.BLOB_STORAGE.READ_WRITE_TOKEN,
+      })
+
+      // 删除文件
+      await del(filename, {
+        token: API_CONFIG.BLOB_STORAGE.READ_WRITE_TOKEN,
+      })
+      
+      return NextResponse.json({ message: '文件删除成功' })
+    } catch (blobError) {
+      return NextResponse.json({ error: '文件不存在' }, { status: 404 })
+    }
 
   } catch (error) {
     console.error('删除文件错误:', error)

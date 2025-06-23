@@ -10,6 +10,7 @@ import Link from "next/link"
 interface UploadedFile {
   id: string
   name: string
+  originalName?: string
   size: number
   uploadTime: Date
   status: "uploading" | "completed" | "error"
@@ -29,6 +30,7 @@ export default function HomePage() {
           const files = data.files.map((file: any) => ({
             id: file.id,
             name: file.name,
+            originalName: file.originalName,
             size: file.size,
             uploadTime: new Date(file.uploadTime),
             status: "completed" as const
@@ -48,6 +50,7 @@ export default function HomePage() {
       const newFile: UploadedFile = {
         id: Date.now().toString(),
         name: file.name,
+        originalName: file.name,
         size: file.size,
         uploadTime: new Date(),
         status: "uploading",
@@ -66,9 +69,21 @@ export default function HomePage() {
 
         if (response.ok) {
           const result = await response.json()
-          setUploadedFiles((prev) => 
-            prev.map((f) => (f.id === newFile.id ? { ...f, status: "completed" } : f))
-          )
+          if (result.files && result.files.length > 0) {
+            const uploadedFile = result.files[0] // 获取上传后的文件信息
+            setUploadedFiles((prev) => 
+              prev.map((f) => (f.id === newFile.id ? { 
+                ...f, 
+                name: uploadedFile.name, // 使用服务器返回的实际文件名
+                originalName: uploadedFile.originalName || uploadedFile.name,
+                status: "completed" 
+              } : f))
+            )
+          } else {
+            setUploadedFiles((prev) => 
+              prev.map((f) => (f.id === newFile.id ? { ...f, status: "completed" } : f))
+            )
+          }
         } else {
           throw new Error('上传失败')
         }
@@ -114,6 +129,7 @@ export default function HomePage() {
       const fileToDelete = uploadedFiles.find(f => f.id === id)
       if (!fileToDelete) return
 
+      // 使用实际的文件名（API中的name字段）进行删除
       const response = await fetch(`/api/files/${encodeURIComponent(fileToDelete.name)}`, {
         method: 'DELETE'
       })
@@ -231,7 +247,7 @@ export default function HomePage() {
                     <div className="flex items-center space-x-4">
                       <FileText className="h-8 w-8 text-red-500 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-medium text-gray-900 truncate">{file.name}</h4>
+                        <h4 className="font-medium text-gray-900 truncate">{file.originalName || file.name}</h4>
                         <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
                           <span>{formatFileSize(file.size)}</span>
                           <span>•</span>

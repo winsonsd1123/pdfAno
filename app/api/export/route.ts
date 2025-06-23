@@ -3,6 +3,8 @@ import { PDFDocument, PDFName, PDFDict, PDFArray, PDFHexString, PDFNumber, rgb, 
 import fontkit from '@pdf-lib/fontkit'
 import fs from 'fs'
 import path from 'path'
+import { head } from '@vercel/blob'
+import { API_CONFIG } from '@/lib/config'
 
 interface Annotation {
   id: string
@@ -27,13 +29,26 @@ export async function POST(request: NextRequest) {
     }
 
     // 读取原始PDF文件
-    const filePath = path.join(process.cwd(), 'uploads', filename)
-    
-    if (!fs.existsSync(filePath)) {
-      return NextResponse.json({ error: 'File not found' }, { status: 404 })
+    if (!API_CONFIG.BLOB_STORAGE.READ_WRITE_TOKEN) {
+      return NextResponse.json({ error: 'Blob存储未配置' }, { status: 500 })
     }
 
-    const existingPdfBytes = fs.readFileSync(filePath)
+    let existingPdfBytes: ArrayBuffer
+    try {
+      // 从blob存储获取文件信息
+      const blob = await head(filename, {
+        token: API_CONFIG.BLOB_STORAGE.READ_WRITE_TOKEN,
+      })
+
+      // 获取文件内容
+      const response = await fetch(blob.url)
+      if (!response.ok) {
+        throw new Error('Failed to fetch PDF from blob storage')
+      }
+      existingPdfBytes = await response.arrayBuffer()
+    } catch (blobError) {
+      return NextResponse.json({ error: 'File not found' }, { status: 404 })
+    }
     
     // 加载PDF文档
     const pdfDoc = await PDFDocument.load(existingPdfBytes)

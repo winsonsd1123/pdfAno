@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FileText, User, Clock, CheckCircle, PlayCircle, AlertCircle, Edit3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -9,6 +9,7 @@ import Link from "next/link"
 interface WorkspaceDocument {
   id: string
   name: string
+  originalName?: string
   uploader: string
   uploadTime: Date
   annotationStatus: "not_started" | "in_progress" | "completed"
@@ -16,40 +17,37 @@ interface WorkspaceDocument {
 }
 
 export default function WorkspacePage() {
-  const [documents] = useState<WorkspaceDocument[]>([
-    {
-      id: "1",
-      name: "产品需求文档.pdf",
-      uploader: "张三",
-      uploadTime: new Date("2024-01-15 10:30:00"),
-      annotationStatus: "completed",
-      size: 2048000,
-    },
-    {
-      id: "2",
-      name: "技术方案设计.pdf",
-      uploader: "李四",
-      uploadTime: new Date("2024-01-14 14:20:00"),
-      annotationStatus: "in_progress",
-      size: 1536000,
-    },
-    {
-      id: "3",
-      name: "用户研究报告.pdf",
-      uploader: "王五",
-      uploadTime: new Date("2024-01-13 09:15:00"),
-      annotationStatus: "not_started",
-      size: 3072000,
-    },
-    {
-      id: "4",
-      name: "竞品分析文档.pdf",
-      uploader: "赵六",
-      uploadTime: new Date("2024-01-12 16:45:00"),
-      annotationStatus: "in_progress",
-      size: 1024000,
-    },
-  ])
+  const [documents, setDocuments] = useState<WorkspaceDocument[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // 页面加载时获取已上传的文件
+  useEffect(() => {
+    const fetchFiles = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch('/api/files')
+        if (response.ok) {
+          const data = await response.json()
+          const files = data.files.map((file: any) => ({
+            id: file.id,
+            name: file.name,
+            originalName: file.originalName,
+            uploader: "用户", // 暂时使用默认用户，后续可以扩展用户系统
+            uploadTime: new Date(file.uploadTime),
+            annotationStatus: "not_started" as const, // 暂时设为未开始，后续可以从本地存储或API获取状态
+            size: file.size
+          }))
+          setDocuments(files)
+        }
+      } catch (error) {
+        console.error('获取文件列表失败:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    fetchFiles()
+  }, [])
 
   const getStatusIcon = (status: WorkspaceDocument["annotationStatus"]) => {
     switch (status) {
@@ -90,6 +88,17 @@ export default function WorkspacePage() {
     const sizes = ["Bytes", "KB", "MB", "GB"]
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-600">加载文档列表中...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -182,79 +191,93 @@ export default function WorkspacePage() {
             <h3 className="text-xl font-semibold text-black">文档列表</h3>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    文档名称
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    上传人
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    上传时间
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    文件大小
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    批注状态
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {documents.map((document) => (
-                  <tr key={document.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <FileText className="h-5 w-5 text-red-500 mr-3" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{document.name}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 text-gray-400 mr-2" />
-                        <div className="text-sm text-gray-900">{document.uploader}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 text-gray-400 mr-2" />
-                        <div className="text-sm text-gray-900">{document.uploadTime.toLocaleString()}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatFileSize(document.size)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                          document.annotationStatus,
-                        )}`}
-                      >
-                        {getStatusIcon(document.annotationStatus)}
-                        <span className="ml-1">{getStatusText(document.annotationStatus)}</span>
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <Link href={`/viewer?file=${encodeURIComponent(document.name)}`}>
-                        <Button size="sm" className="bg-black text-white hover:bg-gray-800">
-                          <Edit3 className="h-4 w-4 mr-1" />
-                          批注
-                        </Button>
-                      </Link>
-                    </td>
+          {documents.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 mb-4">暂无上传的文档</p>
+              <Link href="/">
+                <Button className="bg-black text-white hover:bg-gray-800">
+                  前往上传文档
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      文档名称
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      上传人
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      上传时间
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      文件大小
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      批注状态
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      操作
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {documents.map((document) => (
+                    <tr key={document.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <FileText className="h-5 w-5 text-red-500 mr-3" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {document.originalName || document.name}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <User className="h-4 w-4 text-gray-400 mr-2" />
+                          <div className="text-sm text-gray-900">{document.uploader}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                          <div className="text-sm text-gray-900">{document.uploadTime.toLocaleString()}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatFileSize(document.size)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                            document.annotationStatus,
+                          )}`}
+                        >
+                          {getStatusIcon(document.annotationStatus)}
+                          <span className="ml-1">{getStatusText(document.annotationStatus)}</span>
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <Link href={`/viewer?file=${encodeURIComponent(document.name)}`}>
+                          <Button size="sm" className="bg-black text-white hover:bg-gray-800">
+                            <Edit3 className="h-4 w-4 mr-1" />
+                            批注
+                          </Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </div>
     </div>
