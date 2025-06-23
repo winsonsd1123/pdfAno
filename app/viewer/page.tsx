@@ -1002,7 +1002,7 @@ export default function ViewerPage() {
           id: `auto-${Date.now()}-${index}`,
           page: pageNum,
           author: "指导教师",
-          content: `📝 ${item.title}\n\n${item.description}\n\n✏️ 修改建议：\n${item.suggestion}`,
+          content: `${item.title}\r\n\n${item.description}\r\n\n 修改建议：\n${item.suggestion}`,
           timestamp: new Date(),
           x: position.x,
           y: position.y,
